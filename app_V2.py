@@ -234,7 +234,7 @@ if selected == 'Dashboard':
     with col1:
         # IMC por categoria de obesidade (boxplot)
         fig1, ax1 = plt.subplots(figsize=(7,4))
-        sns.countplot(x='obesidade', y='imc', data=df_filt, ax=ax1)
+        sns.countplot(x='obesidade', data=df_filt, ax=ax1)
         ax1.set_title('IMC por Categoria de Obesidade')
         ax1.set_xlabel('Categoria')
         ax1.set_ylabel('IMC')
