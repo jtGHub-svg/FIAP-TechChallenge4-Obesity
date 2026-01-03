@@ -232,7 +232,7 @@ if selected == 'Dashboard':
     tmp = df_filt.copy() 
     tmp['genero_label'] = tmp['genero'].map({0: 'Feminino', 1: 'Masculino'}) 
     risco_etario = tmp.groupby(['faixa_idade', 'genero_label'])['risco_obesidade'].mean().reset_index() 
-    sns.barplot(x='faixa_idade', y='risco_obesidade', hue='gênero', data=risco_etario, ax=ax3, palette='Set2') 
+    sns.barplot(x='faixa_idade', y='risco_obesidade', hue='genero_label', data=risco_etario, ax=ax3, palette='Set2') 
     ax3.set_xlabel('Faixa etária') 
     ax3.set_ylabel('Risco médio') 
     st.pyplot(fig3) 
