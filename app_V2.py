@@ -5,6 +5,7 @@ import pandas as pd
 import seaborn as sns 
 import matplotlib.pyplot as plt 
 from sklearn.metrics import confusion_matrix, roc_curve, auc, classification_report, accuracy_score 
+from sklearn.inspection import PartialDependenceDisplay
 import streamlit as st 
 from streamlit_option_menu import option_menu 
 # =============================== 
@@ -309,38 +310,10 @@ if selected == 'Dashboard':
         axF.set_ylabel('Água/dia') 
         st.pyplot(figF) 
     st.divider() 
-    st.subheader('3) Performance do modelo (avaliado no filtro)') 
+    st.subheader('3) Importância das variáveis (agregada)') 
     # Avaliar pipeline no dataset filtrado 
-    X = df_filt[FEATURES_ORDER] 
+    X = df_filt[FEATURES_ORDER]
     y = df_filt['risco_obesidade'] 
-    # Controle de limite de decisão 
-    thr_dash = st.slider('Limite de decisão (probabilidade) para o dashboard', min_value=0.10, max_value=0.90, value=0.50, step=0.05) 
-    y_prob = modelo.predict_proba(X)[:,1] 
-    y_pred_thr = (y_prob >= thr_dash).astype(int) 
-    acc = accuracy_score(y, y_pred_thr) 
-    st.metric('Acurácia (com limite)', f"{acc:.3f}") 
-    # Matriz de confusão (% por classe real) 
-    cm = confusion_matrix(y, y_pred_thr) 
-    cm_percent = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis] * 100 
-    fig5, ax5 = plt.subplots(figsize=(6, 4.8)) 
-    sns.heatmap(cm_percent, annot=True, fmt='.1f', cmap='Blues', ax=ax5) 
-    ax5.set_title('Matriz de Confusão (%) — limite aplicado') 
-    ax5.set_xlabel('Previsto') 
-    ax5.set_ylabel('Real') 
-    st.pyplot(fig5) 
-    # Curva ROC 
-    fpr, tpr, _ = roc_curve(y, y_prob) 
-    roc_auc = auc(fpr, tpr) 
-    fig6, ax6 = plt.subplots(figsize=(6, 4.8)) 
-    ax6.plot(fpr, tpr, label=f'AUC = {roc_auc:.2f}') 
-    ax6.plot([0,1], [0,1], linestyle='--', color='gray') 
-    ax6.set_xlabel('Taxa de Falsos Positivos') 
-    ax6.set_ylabel('Taxa de Verdadeiros Positivos') 
-    ax6.set_title('Curva ROC') 
-    ax6.legend(loc='lower right') 
-    st.pyplot(fig6) 
-    st.divider() 
-    st.subheader('4) Importância das variáveis (agregada)') 
     try: 
         agg_imp = get_feature_importance_aggregated(modelo, X) 
         if agg_imp.empty: 
@@ -369,13 +342,33 @@ if selected == 'Dashboard':
             top_n = st.slider('Top N', min_value=5, max_value=30, value=15) 
             fig7, ax7 = plt.subplots(figsize=(9, 6.5)) 
             sns.barplot(x='importancia', y='variavel', data=agg_imp.head(top_n), ax=ax7, orient='h', palette='viridis') 
-            ax7.set_title('Importância das Variáveis (soma dos one-hot)') 
+            ax7.set_title('Importância das Variáveis') 
             ax7.set_xlabel('Importância') 
             ax7.set_ylabel('Variável') 
             st.pyplot(fig7) 
             st.dataframe(agg_imp.rename(columns={'variavel_base':'variável_base'})) 
     except Exception as e: 
         st.warning(f'Não foi possível extrair importância agregada: {e}') 
+
+    st.divider()
+    st.subheader('4) Dependência Parcial (PDP)')
+    st.caption('Efeito marginal das features numéricas na probabilidade prevista de risco (classe 1).')
+    try:
+        X_pdp = df_filt[FEATURES_ORDER]
+        figP, axP = plt.subplots(2, 2, figsize=(10, 8))
+        PartialDependenceDisplay.from_estimator(modelo, X_pdp, features=['idade'],  target=1, ax=axP[0, 0])
+        axP[0, 0].set_title('Dependência Parcial - Idade')
+        PartialDependenceDisplay.from_estimator(modelo, X_pdp, features=['peso'],   target=1, ax=axP[0, 1])
+        axP[0, 1].set_title('Dependência Parcial - Peso')
+        PartialDependenceDisplay.from_estimator(modelo, X_pdp, features=['imc'],    target=1, ax=axP[1, 0])
+        axP[1, 0].set_title('Dependência Parcial - IMC')
+        PartialDependenceDisplay.from_estimator(modelo, X_pdp, features=['altura'], target=1, ax=axP[1, 1])
+        axP[1, 1].set_title('Dependência Parcial - Altura')
+        plt.tight_layout()
+        st.pyplot(figP)
+        st.info('Interpretação: curvas mostram a variação média da probabilidade prevista ao ajustar cada variável, mantendo as demais constantes.')
+    except Exception as e:
+        st.warning(f'Não foi possível gerar os gráficos de dependência parcial: {e}')
 # =============================== 
 # PÁGINA: SOBRE 
 # =============================== 
