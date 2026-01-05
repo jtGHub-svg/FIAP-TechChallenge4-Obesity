@@ -308,7 +308,74 @@ if selected == 'Dashboard':
         axF.set_xlabel('Taxa de risco') 
         axF.set_ylabel('Água/dia') 
         st.pyplot(figF) 
-        
+    st.divider() 
+    st.subheader('3) Performance do modelo (avaliado no filtro)') 
+    # Avaliar pipeline no dataset filtrado 
+    X = df_filt[FEATURES_ORDER] 
+    y = df_filt['risco_obesidade'] 
+    # Controle de limite de decisão 
+    thr_dash = st.slider('Limite de decisão (probabilidade) para o dashboard', min_value=0.10, max_value=0.90, value=0.50, step=0.05) 
+    y_prob = modelo.predict_proba(X)[:,1] 
+    y_pred_thr = (y_prob >= thr_dash).astype(int) 
+    acc = accuracy_score(y, y_pred_thr) 
+    st.metric('Acurácia (com limite)', f"{acc:.3f}") 
+    # Matriz de confusão (% por classe real) 
+    cm = confusion_matrix(y, y_pred_thr) 
+    cm_percent = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis] * 100 
+    fig5, ax5 = plt.subplots(figsize=(6, 4.8)) 
+    sns.heatmap(cm_percent, annot=True, fmt='.1f', cmap='Blues', ax=ax5) 
+    ax5.set_title('Matriz de Confusão (%) — limite aplicado') 
+    ax5.set_xlabel('Previsto') 
+    ax5.set_ylabel('Real') 
+    st.pyplot(fig5) 
+    # Curva ROC 
+    fpr, tpr, _ = roc_curve(y, y_prob) 
+    roc_auc = auc(fpr, tpr) 
+    fig6, ax6 = plt.subplots(figsize=(6, 4.8)) 
+    ax6.plot(fpr, tpr, label=f'AUC = {roc_auc:.2f}') 
+    ax6.plot([0,1], [0,1], linestyle='--', color='gray') 
+    ax6.set_xlabel('Taxa de Falsos Positivos') 
+    ax6.set_ylabel('Taxa de Verdadeiros Positivos') 
+    ax6.set_title('Curva ROC') 
+    ax6.legend(loc='lower right') 
+    st.pyplot(fig6) 
+    st.divider() 
+    st.subheader('4) Importância das variáveis (agregada)') 
+    try: 
+        agg_imp = get_feature_importance_aggregated(modelo, X) 
+        if agg_imp.empty: 
+            st.warning('O modelo atual não fornece importâncias ou houve falha na extração.') 
+        else: 
+            rename_pt = { 
+                'consumo_vegetais': 'consumo de vegetais', 
+                'refeicoes_por_dia': 'refeições por dia', 
+                'lanches_entre_refeicoes': 'lanches entre refeições', 
+                'consumo_agua_por_dia': 'consumo de água/dia', 
+                'atividade_fisica_semana': 'atividade física/semana', 
+                'tempo_eletronicos_por_dia': 'tempo em eletrônicos/dia', 
+                'consumo_alcoolico': 'consumo alcoólico', 
+                'meio_transporte': 'meio de transporte', 
+                'idade': 'idade', 
+                'altura': 'altura', 
+                'peso': 'peso', 
+                'imc': 'IMC', 
+                'genero': 'gênero', 
+                'historico_familiar_sobrepeso': 'histórico familiar', 
+                'consumo_alimentos_caloricos': 'alimentos calóricos', 
+                'fumante': 'fumante', 
+                'monitora_calorias': 'monitora calorias', 
+            } 
+            agg_imp['variavel'] = agg_imp['variavel_base'].map(lambda x: rename_pt.get(x, x)) 
+            top_n = st.slider('Top N', min_value=5, max_value=30, value=15) 
+            fig7, ax7 = plt.subplots(figsize=(9, 6.5)) 
+            sns.barplot(x='importancia', y='variavel', data=agg_imp.head(top_n), ax=ax7, orient='h', palette='viridis') 
+            ax7.set_title('Importância das Variáveis (soma dos one-hot)') 
+            ax7.set_xlabel('Importância') 
+            ax7.set_ylabel('Variável') 
+            st.pyplot(fig7) 
+            st.dataframe(agg_imp.rename(columns={'variavel_base':'variável_base'})) 
+    except Exception as e: 
+        st.warning(f'Não foi possível extrair importância agregada: {e}') 
 # =============================== 
 # PÁGINA: SOBRE 
 # =============================== 
